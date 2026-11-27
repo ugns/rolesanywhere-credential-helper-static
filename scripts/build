@@ -35,8 +35,7 @@ case "$musl_version" in
   1.2.6) musl_sha256=d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a ;;
   *) echo "No reviewed musl archive checksum for $musl_version" >&2; exit 1 ;;
 esac
-alpine_branch=$(cut -d. -f1,2 /etc/alpine-release)
-wget -O /tmp/musl.tar.gz "https://distfiles.alpinelinux.org/distfiles/v$alpine_branch/musl-$musl_version.tar.gz"
+wget -O /tmp/musl.tar.gz "https://musl.libc.org/releases/musl-$musl_version.tar.gz"
 printf '%s  %s\n' "$musl_sha256" /tmp/musl.tar.gz | sha256sum -c -
 tar -xOzf /tmp/musl.tar.gz "musl-$musl_version/COPYRIGHT" > ../dist/licenses/MUSL-COPYRIGHT
 test -s ../dist/licenses/MUSL-COPYRIGHT
