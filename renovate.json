@@ -38,6 +38,20 @@
       "depNameTemplate": "google/go-licenses",
       "datasourceTemplate": "github-tags",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Track native Ubuntu runner labels in the build matrix",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/ci\\.yml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)[ \\t]+- runner: ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2}(?:-arm)?)[ \\t]*(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "ubuntu",
+      "datasourceTemplate": "github-runners",
+      "depTypeTemplate": "github-runner",
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -74,6 +88,17 @@
         "digest"
       ],
       "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "github-runners"
+      ],
+      "matchPackageNames": [
+        "ubuntu"
+      ],
+      "groupName": "Ubuntu runner images",
+      "groupSlug": "ubuntu-runner-images",
+      "automerge": false
     }
   ]
 }
