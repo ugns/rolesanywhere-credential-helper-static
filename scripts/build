@@ -60,7 +60,7 @@ awk '
   /^LOAD / {
     object = $2
     sub(/^.*\//, "", object)
-    if (object ~ /^(.*crt[1in]\.o|crtbegin[^/]*\.o|crtend[^/]*\.o)$/)
+    if (object ~ /^(.*crt[1in]\.o|crtbegin.*\.o|crtend.*\.o)$/)
       print "startup-object: " object
   }
 ' /build/native-link.map > /tmp/native-components
