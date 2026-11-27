@@ -12,7 +12,7 @@ test "$(git -C upstream rev-parse HEAD)" = "$commit" || { echo "Upstream tag doe
 mkdir -p dist
 cd upstream
 CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -mod=readonly -buildmode=exe \
-  -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags=-static -w -s" \
+  -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags '-static -Wl,-Map=/build/native-link.map' -w -s" \
   -trimpath -o "../dist/aws_signing_helper-$version-linux-$arch-static" main.go
 
 # Preserve the redistribution notices and record the actual toolchain.
@@ -27,6 +27,48 @@ go install github.com/google/go-licenses/v2@v2.0.1
 echo 'Collecting Go dependency licenses'
 CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies || { echo 'Go dependency license collection failed' >&2; exit 1; }
 echo 'Go dependency license collection completed'
+
+# GCC runtime/startup code can be linked even when no shared libraries remain.
+cp ../licenses/gcc/COPYING3 ../dist/licenses/GCC-COPYING3
+cp ../licenses/gcc/COPYING.RUNTIME ../dist/licenses/GCC-COPYING.RUNTIME
+
+# The PKCS#11 module's BSD license does not reproduce these header notices.
+pkcs11_dir=$(go list -mod=readonly -m -f '{{.Dir}}' github.com/miekg/pkcs11)
+test -d "$pkcs11_dir"
+for header in pkcs11.h pkcs11f.h pkcs11t.h; do
+  printf '%s\n' "$header"
+  sed -n '1,/^[[:space:]]*\*\//p' "$pkcs11_dir/$header" > /tmp/pkcs11-header-notice
+  grep -q 'Copyright (c) OASIS' /tmp/pkcs11-header-notice
+  grep -q 'OASIS IPR Policy' /tmp/pkcs11-header-notice
+  cat /tmp/pkcs11-header-notice
+  printf '\n'
+done > ../dist/licenses/PKCS11-OASIS-NOTICE
+rm -f /tmp/pkcs11-header-notice
+test -s ../dist/licenses/PKCS11-OASIS-NOTICE
+
+# Record archive members selected by GNU ld and loaded startup objects.
+# Selection is not proof that every section survives linker garbage collection.
+test -s /build/native-link.map
+awk '
+  /^Archive member included to satisfy reference/ { selected = 1; next }
+  /^(Allocating common symbols|Discarded input sections|Memory Configuration|Linker script and memory map)/ { selected = 0 }
+  selected && match($0, /^[^[:space:]]+\.a\([^)]*\)/) {
+    member = substr($0, RSTART, RLENGTH)
+    sub(/^.*\//, "", member)
+    print "archive-member: " member
+  }
+  /^LOAD / {
+    object = $2
+    sub(/^.*\//, "", object)
+    if (object ~ /^(.*crt[1in]\.o|crtbegin[^/]*\.o|crtend[^/]*\.o)$/)
+      print "startup-object: " object
+  }
+' /build/native-link.map > /tmp/native-components
+grep -q '^archive-member: libc\.a(' /tmp/native-components
+grep -q '^startup-object: crtbegin' /tmp/native-components
+sort -u /tmp/native-components > /tmp/native-components.sorted
+echo 'Native linker inventory:'
+cat /tmp/native-components.sorted
 # musl is statically linked, so its copyright notice must accompany the binary.
 musl_version=$(apk info -v | sed -n 's/^musl-\([0-9][0-9.]*\)-r[0-9][0-9]*$/\1/p')
 test -n "$musl_version" || { echo "Unable to determine installed musl version" >&2; apk info -v >&2; exit 1; }
@@ -41,6 +83,9 @@ test -s ../dist/licenses/MUSL-COPYRIGHT
 echo "Recording build metadata"
 {
   printf 'upstream_commit=%s\n' "$commit"
+  printf 'gcc_version=%s\n' "$(gcc -dumpfullversion -dumpversion)"
   go version -m "$binary"
   apk info -v | sort
+  printf '\nNative linker inventory (selected archive members and loaded startup objects; sections may be discarded):\n'
+  cat /tmp/native-components.sorted
 } > "../dist/build-info-$arch.txt"
