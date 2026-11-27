@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+version=$(cat VERSION)
+commit=$(cat UPSTREAM_COMMIT)
+arch=$(go env GOARCH)
+case "$arch" in amd64|arm64) ;; *) exit 1 ;; esac
+git clone --depth 1 --branch "v$version" https://github.com/aws/rolesanywhere-credential-helper.git upstream
+test "$(git -C upstream rev-parse HEAD)" = "$commit"
+mkdir -p dist
+cd upstream
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -mod=readonly -buildmode=exe \
+  -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags=-static -w -s" \
+  -trimpath -o "../dist/aws_signing_helper-$version-linux-$arch-static" main.go

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+version=$(cat VERSION)
+arch=$(go env GOARCH)
+binary="dist/aws_signing_helper-$version-linux-$arch-static"
+test "$( "$binary" version )" = "$version"
+case "$arch" in amd64) machine='Advanced Micro Devices X86-64';; arm64) machine='AArch64';; *) exit 1;; esac
+readelf -h "$binary" | grep -F "$machine"
+if readelf -l "$binary" | grep -q INTERP; then exit 1; fi
+if readelf -d "$binary" | grep -q NEEDED; then exit 1; fi

@@ -1,0 +1,42 @@
+name: Build and portability
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make build ENGINE=docker
+      - name: Test distro compatibility
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -eu
+          version=$(cat VERSION)
+          binary="$PWD/dist/aws_signing_helper-$version-linux-$ARCH-static"
+          for image in alpine:3.24 debian:12-slim ubuntu:24.04 amazonlinux:2023 gcr.io/distroless/static-debian12; do
+            test "$(docker run --rm --network none --user 100:1000 -v "$binary:/helper:ro" --entrypoint /helper "$image" version)" = "$version"
+          done
+          printf 'FROM scratch\nCOPY helper /helper\nENTRYPOINT ["/helper"]\n' > dist/Dockerfile
+          cp "$binary" dist/helper
+          docker build -t helper-scratch dist
+          test "$(docker run --rm --network none helper-scratch version)" = "$version"
+          rm dist/helper dist/Dockerfile
+          (cd dist && sha256sum aws_signing_helper-* > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error
