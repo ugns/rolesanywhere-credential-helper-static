@@ -5,11 +5,75 @@
   ],
   "enabledManagers": [
     "dockerfile",
-    "github-actions"
+    "github-actions",
+    "custom.regex"
   ],
   "dockerfile": {
     "managerFilePatterns": [
       "/(^|/)Containerfile$/"
     ]
-  }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^upstream\\.lock$/"
+      ],
+      "matchStrings": [
+        "^(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+) (?<currentDigest>[0-9a-f]{40})\\n?$"
+      ],
+      "depNameTemplate": "aws/rolesanywhere-credential-helper",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "{{{newValue}}} {{{newDigest}}}\n"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^scripts\\/build$/"
+      ],
+      "matchStrings": [
+        "go install github\\.com/google/go-licenses/v2@(?<currentValue>v2\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depNameTemplate": "google/go-licenses",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": [
+        "docker",
+        "github-tags"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "golang",
+        "aws/rolesanywhere-credential-helper"
+      ],
+      "pinDigests": true
+    },
+    {
+      "matchPackageNames": [
+        "aws/rolesanywhere-credential-helper"
+      ],
+      "automerge": false,
+      "ignoreUnstable": true
+    },
+    {
+      "matchPackageNames": [
+        "google/go-licenses"
+      ],
+      "allowedVersions": "<3.0.0"
+    },
+    {
+      "matchPackageNames": [
+        "aws/rolesanywhere-credential-helper"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "enabled": false
+    }
+  ]
 }

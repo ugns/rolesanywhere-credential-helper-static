@@ -12,7 +12,7 @@ make build
 make build ENGINE=docker
 ```
 
-The binary is written to `dist/aws_signing_helper-<version>-linux-<arch>-static`. VERSION and UPSTREAM_COMMIT pin the source tag and its resolved commit. The build checks both, embeds the upstream version and verifies the ELF architecture and lack of an interpreter or shared-library dependencies.
+The binary is written to `dist/aws_signing_helper-<version>-linux-<arch>-static`. The upstream.lock file pins the source tag and its resolved commit in a single record. The build checks both, embeds the upstream version and verifies the ELF architecture and lack of an interpreter or shared-library dependencies.
 
 ## Support
 
@@ -24,7 +24,7 @@ HTTPS authentication requires trusted CA certificates, DNS, network access, read
 
 CI produces a combined release-assets artifact containing both architectures, SHA256SUMS, SPDX JSON SBOMs, dependency license bundles and toolchain metadata. Alpine is chosen for its native musl toolchain, not as a target operating system.
 
-After merging a reviewed change to main, create and push a tag matching VERSION (for example, v1.8.6). The same CI matrix builds and verifies the assets, checks the tag is reachable from main, attests the packaged files, and creates a draft GitHub release. Review its license bundles, SBOMs, checksums and provenance before publishing. Protect release tags with repository rulesets. Never move a published tag or overwrite a published release.
+After merging a reviewed change to main, create and push a tag matching the first field of upstream.lock (for example, v1.8.6). The same CI matrix builds and verifies the assets, checks the tag is reachable from main, attests the packaged files, and creates a draft GitHub release. Review its license bundles, SBOMs, checksums and provenance before publishing. Protect release tags with repository rulesets. Never move a published tag or overwrite a published release.
 
 Download the binary and SHA256SUMS from the published release. Verify the binary and its GitHub provenance before installation:
 
@@ -35,11 +35,11 @@ gh attestation verify "$binary" --repo ugns/rolesanywhere-credential-helper-stat
 install -m 0755 "$binary" /usr/local/bin/aws_signing_helper
 ```
 
-Do not use unreviewed CI artifacts as production dependencies. The binary SBOM may not identify every statically linked C component; consult the recorded Alpine packages and license bundle as well. The build image is currently version-tagged and Alpine packages are resolved at build time; byte-for-byte reproducibility is not asserted.
+Do not use unreviewed CI artifacts as production dependencies. The binary SBOM may not identify every statically linked C component; consult the recorded Alpine packages and license bundle as well. The Go build image is pinned by multi-platform manifest digest; Alpine packages are resolved at build time; byte-for-byte reproducibility is not asserted.
 
 ## Updating upstream
 
-Update VERSION and UPSTREAM_COMMIT together after reviewing upstream releases and verifying the tag's resolved commit. Renovate manages build-image and GitHub Actions dependencies; upstream source updates are manual for now.
+Renovate tracks the AWS upstream tag and its resolved commit in upstream.lock using the github-tags datasource, along with the Go build image, license collector and GitHub Actions. Renovate does not propose digest-only updates to an existing upstream tag, and upstream changes require manual review. Review upstream version and digest changes together; the build rejects a tag that does not resolve to the locked commit. For manual updates, replace both fields together (tag including the v prefix, followed by the full commit SHA). Review musl archive checksums in musl-checksums.txt when the installed musl version changes. Do not automatically trust a newly downloaded checksum or disable license verification. Alpine APK dependencies are not fully locked: exact package pins against rolling repositories can become unavailable, so a retained package snapshot would be required for reliable offline/reproducible builds.
 
 ## License
 
