@@ -35,7 +35,7 @@ gh attestation verify "$binary" --repo ugns/rolesanywhere-credential-helper-stat
 install -m 0755 "$binary" /usr/local/bin/aws_signing_helper
 ```
 
-Do not use unreviewed CI artifacts as production dependencies. The binary SBOM may not identify every statically linked C component; consult the recorded Alpine packages and license bundle as well. The Go build image is pinned by multi-platform manifest digest; Alpine packages are resolved at build time; byte-for-byte reproducibility is not asserted.
+Do not use unreviewed CI artifacts as production dependencies. The binary SBOM may not identify every statically linked C component; consult the native linker inventory, recorded Alpine packages and license bundle in addition to the SBOM. The inventory records archive members selected by GNU ld and startup objects loaded, not proof that all of their sections survive linking. The Go build image is pinned by multi-platform manifest digest; Alpine packages are resolved at build time; byte-for-byte reproducibility is not asserted.
 
 ## Updating upstream
 
@@ -43,4 +43,4 @@ Renovate tracks the AWS upstream tag and its resolved commit in upstream.lock us
 
 ## License
 
-Build tooling is Apache-2.0. AWS upstream code remains subject to its own license and third-party notices; review these before redistributing binaries. The build collects AWS LICENSE/NOTICE, Go toolchain notices, Go dependency licenses and musl copyright. Review completeness, including any linked compiler runtime, before publishing.
+Build tooling is Apache-2.0. AWS upstream code remains subject to its own license and third-party notices; review these before redistributing binaries. The build collects AWS LICENSE/NOTICE, Go toolchain notices, Go dependency licenses, musl copyright, GCC GPLv3 and Runtime Library Exception 3.1 texts, and the OASIS notices from the PKCS#11 module headers. The verbatim GCC texts in `licenses/gcc/` are from [GCC 15.2.0](https://github.com/gcc-mirror/gcc/tree/5115c7e447fc07457443df874bf57840e8316d5f) and retain their own terms; they are not relicensed as Apache-2.0. The build records the actual GCC version and native linker inventory. Review GCC runtime licensing and these texts when the compiler changes, and review additional native components, license bundles and SBOM completeness before publishing. The GCC Runtime Library Exception permits qualifying target code redistribution under its own terms; it does not relicense GCC itself.
