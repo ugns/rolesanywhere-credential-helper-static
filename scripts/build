@@ -1,10 +1,92 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-version=$(cat VERSION)
-commit=$(cat UPSTREAM_COMMIT)
+version=$(cut -d ' ' -f1 upstream.lock | sed 's/^v//')
+commit=$(cut -d ' ' -f2 upstream.lock)
 arch=$(go env GOARCH)
 case "$arch" in amd64|arm64) ;; *) exit 1 ;; esac
+printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+ https://github.com/aws/rolesanywhere-credential-helper.git upstream
+test "$(git -C upstream rev-parse HEAD)" = "$commit" || { echo "Upstream tag does not match locked commit" >&2; exit 1; }
+mkdir -p dist
+cd upstream
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -mod=readonly -buildmode=exe \
+  -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags=-static -w -s" \
+  -trimpath -o "../dist/aws_signing_helper-$version-linux-$arch-static" main.go
+
+# Preserve the redistribution notices and record the actual toolchain.
+binary="../dist/aws_signing_helper-$version-linux-$arch-static"
+mkdir -p ../dist/licenses
+cp LICENSE ../dist/licenses/AWS-LICENSE
+cp NOTICE ../dist/licenses/AWS-NOTICE
+cp "$(go env GOROOT)/LICENSE" ../dist/licenses/GO-LICENSE
+cp "$(go env GOROOT)/PATENTS" ../dist/licenses/GO-PATENTS
+echo 'Installing Go license collector'
+go install github.com/google/go-licenses/v2@v2.0.1
+echo 'Collecting Go dependency licenses'
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies || { echo 'Go dependency license collection failed' >&2; exit 1; }
+echo 'Go dependency license collection completed'
+# musl is statically linked, so its copyright notice must accompany the binary.
+musl_version=$(apk info -v | sed -n 's/^musl-\([0-9][0-9.]*\)-r[0-9][0-9]*$/\1/p')
+test -n "$musl_version" || { echo "Unable to determine installed musl version" >&2; apk info -v >&2; exit 1; }
+echo "Collecting musl copyright for $musl_version"
+# Archive checksum independently recorded by Buildroot after signature verification:
+# https://lists.buildroot.org/pipermail/buildroot/2026-March/799627.html
+case "$musl_version" in
+  1.2.6) musl_sha256=d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a ;;
+  *) echo "No reviewed musl archive checksum for $musl_version" >&2; exit 1 ;;
+esac
+wget -O /tmp/musl.tar.gz "https://musl.libc.org/releases/musl-$musl_version.tar.gz"
+printf '%s  %s\n' "$musl_sha256" /tmp/musl.tar.gz | sha256sum -c -
+tar -xOzf /tmp/musl.tar.gz "musl-$musl_version/COPYRIGHT" > ../dist/licenses/MUSL-COPYRIGHT
+test -s ../dist/licenses/MUSL-COPYRIGHT
+echo "Recording build metadata"
+{
+  printf 'upstream_commit=%s\n' "$commit"
+  go version -m "$binary"
+  apk info -v | sort
+} > "../dist/build-info-$arch.txt"
+
+printf '%s\n' "$commit" | grep -Eq '^[0-9a-f]{40} https://github.com/aws/rolesanywhere-credential-helper.git upstream
+test "$(git -C upstream rev-parse HEAD)" = "$commit"
+mkdir -p dist
+cd upstream
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -mod=readonly -buildmode=exe \
+  -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags=-static -w -s" \
+  -trimpath -o "../dist/aws_signing_helper-$version-linux-$arch-static" main.go
+
+# Preserve the redistribution notices and record the actual toolchain.
+binary="../dist/aws_signing_helper-$version-linux-$arch-static"
+mkdir -p ../dist/licenses
+cp LICENSE ../dist/licenses/AWS-LICENSE
+cp NOTICE ../dist/licenses/AWS-NOTICE
+cp "$(go env GOROOT)/LICENSE" ../dist/licenses/GO-LICENSE
+cp "$(go env GOROOT)/PATENTS" ../dist/licenses/GO-PATENTS
+echo 'Installing Go license collector'
+go install github.com/google/go-licenses/v2@v2.0.1
+echo 'Collecting Go dependency licenses'
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies || { echo 'Go dependency license collection failed' >&2; exit 1; }
+echo 'Go dependency license collection completed'
+# musl is statically linked, so its copyright notice must accompany the binary.
+musl_version=$(apk info -v | sed -n 's/^musl-\([0-9][0-9.]*\)-r[0-9][0-9]*$/\1/p')
+test -n "$musl_version" || { echo "Unable to determine installed musl version" >&2; apk info -v >&2; exit 1; }
+echo "Collecting musl copyright for $musl_version"
+# Archive checksum independently recorded by Buildroot after signature verification:
+# https://lists.buildroot.org/pipermail/buildroot/2026-March/799627.html
+case "$musl_version" in
+  1.2.6) musl_sha256=d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a ;;
+  *) echo "No reviewed musl archive checksum for $musl_version" >&2; exit 1 ;;
+esac
+wget -O /tmp/musl.tar.gz "https://musl.libc.org/releases/musl-$musl_version.tar.gz"
+printf '%s  %s\n' "$musl_sha256" /tmp/musl.tar.gz | sha256sum -c -
+tar -xOzf /tmp/musl.tar.gz "musl-$musl_version/COPYRIGHT" > ../dist/licenses/MUSL-COPYRIGHT
+test -s ../dist/licenses/MUSL-COPYRIGHT
+echo "Recording build metadata"
+{
+  printf 'upstream_commit=%s\n' "$commit"
+  go version -m "$binary"
+  apk info -v | sort
+} > "../dist/build-info-$arch.txt"
+
 git clone --depth 1 --branch "v$version" https://github.com/aws/rolesanywhere-credential-helper.git upstream
 test "$(git -C upstream rev-parse HEAD)" = "$commit"
 mkdir -p dist
