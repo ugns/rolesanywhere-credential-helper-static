@@ -20,13 +20,19 @@ cp LICENSE ../dist/licenses/AWS-LICENSE
 cp NOTICE ../dist/licenses/AWS-NOTICE
 cp "$(go env GOROOT)/LICENSE" ../dist/licenses/GO-LICENSE
 cp "$(go env GOROOT)/PATENTS" ../dist/licenses/GO-PATENTS
+echo 'Installing Go license collector'
 go install github.com/google/go-licenses/v2@v2.0.1
-CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies
+echo 'Collecting Go dependency licenses'
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies || { echo 'Go dependency license collection failed' >&2; exit 1; }
+echo 'Go dependency license collection completed'
 # musl is statically linked, so its copyright notice must accompany the binary.
-musl_version=$(apk info -v musl | sed -n 's/^musl-\(.*\)-r[0-9][0-9]*$/\1/p')
-test -n "$musl_version"
+musl_version=$(apk info -v | sed -n 's/^musl-\(.*\)-r[0-9][0-9]*$/\1/p')
+test -n "$musl_version" || { echo "Unable to determine installed musl version" >&2; apk info -v >&2; exit 1; }
+echo "Collecting musl copyright for $musl_version"
 wget -O /tmp/musl.tar.gz "https://musl.libc.org/releases/musl-$musl_version.tar.gz"
 tar -xOzf /tmp/musl.tar.gz "musl-$musl_version/COPYRIGHT" > ../dist/licenses/MUSL-COPYRIGHT
+test -s ../dist/licenses/MUSL-COPYRIGHT
+echo "Recording build metadata"
 {
   printf 'upstream_commit=%s\n' "$commit"
   go version -m "$binary"
