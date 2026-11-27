@@ -26,7 +26,7 @@ echo 'Collecting Go dependency licenses'
 CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies || { echo 'Go dependency license collection failed' >&2; exit 1; }
 echo 'Go dependency license collection completed'
 # musl is statically linked, so its copyright notice must accompany the binary.
-musl_version=$(apk info -v | sed -n 's/^musl-\(.*\)-r[0-9][0-9]*$/\1/p')
+musl_version=$(apk info -v | sed -n 's/^musl-\([0-9][0-9.]*\)-r[0-9][0-9]*$/\1/p')
 test -n "$musl_version" || { echo "Unable to determine installed musl version" >&2; apk info -v >&2; exit 1; }
 echo "Collecting musl copyright for $musl_version"
 # Archive checksum independently recorded by Buildroot after signature verification:
