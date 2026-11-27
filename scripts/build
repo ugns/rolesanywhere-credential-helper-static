@@ -12,3 +12,23 @@ cd upstream
 CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -mod=readonly -buildmode=exe \
   -ldflags="-X github.com/aws/rolesanywhere-credential-helper/cmd.Version=$version -linkmode=external -extldflags=-static -w -s" \
   -trimpath -o "../dist/aws_signing_helper-$version-linux-$arch-static" main.go
+
+# Preserve the redistribution notices and record the actual toolchain.
+binary="../dist/aws_signing_helper-$version-linux-$arch-static"
+mkdir -p ../dist/licenses
+cp LICENSE ../dist/licenses/AWS-LICENSE
+cp NOTICE ../dist/licenses/AWS-NOTICE
+cp "$(go env GOROOT)/LICENSE" ../dist/licenses/GO-LICENSE
+cp "$(go env GOROOT)/PATENTS" ../dist/licenses/GO-PATENTS
+go install github.com/google/go-licenses/v2@v2.0.1
+CGO_ENABLED=1 GOOS=linux GOARCH="$arch" "$(go env GOPATH)/bin/go-licenses" save . --save_path=../dist/licenses/dependencies
+# musl is statically linked, so its copyright notice must accompany the binary.
+musl_version=$(apk info -v musl | sed -n 's/^musl-\(.*\)-r[0-9][0-9]*$/\1/p')
+test -n "$musl_version"
+wget -O /tmp/musl.tar.gz "https://musl.libc.org/releases/musl-$musl_version.tar.gz"
+tar -xOzf /tmp/musl.tar.gz "musl-$musl_version/COPYRIGHT" > ../dist/licenses/MUSL-COPYRIGHT
+{
+  printf 'upstream_commit=%s\n' "$commit"
+  go version -m "$binary"
+  apk info -v | sort
+} > "../dist/build-info-$arch.txt"
