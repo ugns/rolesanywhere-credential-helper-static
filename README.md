@@ -22,7 +22,20 @@ HTTPS authentication requires trusted CA certificates, DNS, network access, read
 
 ## Releases
 
-CI produces per-architecture artifacts and SHA256SUMS. Public release automation, provenance and SBOM publication will be added after the initial build matrix is validated. Do not use unreviewed CI artifacts as production dependencies.
+CI produces a combined release-assets artifact containing both architectures, SHA256SUMS, SPDX JSON SBOMs, dependency license bundles and toolchain metadata. Alpine is chosen for its native musl toolchain, not as a target operating system.
+
+After merging a reviewed change to main, create and push a tag matching VERSION (for example, v1.8.6). The same CI matrix builds and verifies the assets, checks the tag is reachable from main, attests the packaged files, and creates a draft GitHub release. Review its license bundles, SBOMs, checksums and provenance before publishing. Protect release tags with repository rulesets. Never move a published tag or overwrite a published release.
+
+Download the binary and SHA256SUMS from the published release. Verify the binary and its GitHub provenance before installation:
+
+```sh
+binary=aws_signing_helper-1.8.6-linux-amd64-static
+grep -F "  $binary" SHA256SUMS | sha256sum --strict -c -
+gh attestation verify "$binary" --repo ugns/rolesanywhere-credential-helper-static
+install -m 0755 "$binary" /usr/local/bin/aws_signing_helper
+```
+
+Do not use unreviewed CI artifacts as production dependencies. The binary SBOM may not identify every statically linked C component; consult the recorded Alpine packages and license bundle as well. The build image is currently version-tagged and Alpine packages are resolved at build time; byte-for-byte reproducibility is not asserted.
 
 ## Updating upstream
 
@@ -30,4 +43,4 @@ Update VERSION and UPSTREAM_COMMIT together after reviewing upstream releases an
 
 ## License
 
-Build tooling is Apache-2.0. AWS upstream code remains subject to its own license and third-party notices; review these before redistributing binaries.
+Build tooling is Apache-2.0. AWS upstream code remains subject to its own license and third-party notices; review these before redistributing binaries. The build collects AWS LICENSE/NOTICE, Go toolchain notices, Go dependency licenses and musl copyright. Review completeness, including any linked compiler runtime, before publishing.
