@@ -24,7 +24,8 @@
       ],
       "depNameTemplate": "aws/rolesanywhere-credential-helper",
       "datasourceTemplate": "github-tags",
-      "versioningTemplate": "semver"
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "{{{newValue}}} {{{newDigest}}}\n"
     },
     {
       "customType": "regex",
@@ -32,7 +33,7 @@
         "/^scripts\\/build$/"
       ],
       "matchStrings": [
-        "go install github\\.com/google/go-licenses/v2@(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)"
+        "go install github\\.com/google/go-licenses/v2@(?<currentValue>v2\\.[0-9]+\\.[0-9]+)"
       ],
       "depNameTemplate": "google/go-licenses",
       "datasourceTemplate": "github-tags",
@@ -58,6 +59,21 @@
       ],
       "automerge": false,
       "ignoreUnstable": true
+    },
+    {
+      "matchPackageNames": [
+        "google/go-licenses"
+      ],
+      "allowedVersions": "<3.0.0"
+    },
+    {
+      "matchPackageNames": [
+        "aws/rolesanywhere-credential-helper"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "enabled": false
     }
   ]
 }
